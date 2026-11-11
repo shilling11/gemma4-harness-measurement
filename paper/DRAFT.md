@@ -326,7 +326,7 @@ parity, with the agent bypassed, before trusting any configuration comparison.
 
 ## Artifact availability
 
-Everything behind the figures above is published at **<REPO URL>**: the 129-task
+Everything behind the figures above is published at **github.com/shilling11/gemma4-harness-measurement**: the 129-task
 run in three shards, the 24-task development arms including the three repeated
 seeds, both agent-free verification runs, the per-task outcomes, the per-step
 traces, the agent's own patches, the full research record as a changelog, and
