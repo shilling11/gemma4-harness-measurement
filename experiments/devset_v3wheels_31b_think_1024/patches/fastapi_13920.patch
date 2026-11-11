@@ -1,0 +1,74 @@
+diff --git a/fastapi/_compat/shared.py b/fastapi/_compat/shared.py
+index 68b9bbdf..982c10a7 100644
+--- a/fastapi/_compat/shared.py
++++ b/fastapi/_compat/shared.py
+@@ -57,6 +57,14 @@ def lenient_issubclass(
+         raise  # pragma: no cover
+ 
+ 
++def is_typealiastype(annotation: Any) -> bool:
++    try:
++        from types import TypeAliasType
++        return isinstance(annotation, TypeAliasType)
++    except ImportError:
++        return False
++
++
+ def _annotation_is_sequence(annotation: Union[type[Any], None]) -> bool:
+     if lenient_issubclass(annotation, (str, bytes)):
+         return False
+@@ -70,6 +78,8 @@ def field_annotation_is_sequence(annotation: Union[type[Any], None]) -> bool:
+             if field_annotation_is_sequence(arg):
+                 return True
+         return False
++    if is_typealiastype(annotation):
++        return field_annotation_is_sequence(getattr(annotation, "__value__", Any))
+     return _annotation_is_sequence(annotation) or _annotation_is_sequence(
+         get_origin(annotation)
+     )
+@@ -95,6 +105,9 @@ def field_annotation_is_complex(annotation: Union[type[Any], None]) -> bool:
+     if origin is Annotated:
+         return field_annotation_is_complex(get_args(annotation)[0])
+ 
++    if is_typealiastype(annotation):
++        return field_annotation_is_complex(getattr(annotation, "__value__", Any))
++
+     return (
+         _annotation_is_complex(annotation)
+         or _annotation_is_complex(origin)
+@@ -119,6 +132,8 @@ def field_annotation_is_scalar_sequence(annotation: Union[type[Any], None]) -> b
+             elif not field_annotation_is_scalar(arg):
+                 return False
+         return at_least_one_scalar_sequence
++    if is_typealiastype(annotation):
++        return field_annotation_is_scalar_sequence(getattr(annotation, "__value__", Any))
+     return field_annotation_is_sequence(annotation) and all(
+         field_annotation_is_scalar(sub_annotation)
+         for sub_annotation in get_args(annotation)
+@@ -126,6 +141,8 @@ def field_annotation_is_scalar_sequence(annotation: Union[type[Any], None]) -> b
+ 
+ 
+ def is_bytes_or_nonable_bytes_annotation(annotation: Any) -> bool:
++    if is_typealiastype(annotation):
++        return is_bytes_or_nonable_bytes_annotation(getattr(annotation, "__value__", Any))
+     if lenient_issubclass(annotation, bytes):
+         return True
+     origin = get_origin(annotation)
+@@ -137,6 +154,8 @@ def is_bytes_or_nonable_bytes_annotation(annotation: Any) -> bool:
+ 
+ 
+ def is_uploadfile_or_nonable_uploadfile_annotation(annotation: Any) -> bool:
++    if is_typealiastype(annotation):
++        return is_uploadfile_or_nonable_uploadfile_annotation(getattr(annotation, "__value__", Any))
+     if lenient_issubclass(annotation, UploadFile):
+         return True
+     origin = get_origin(annotation)
+@@ -185,6 +204,8 @@ def is_pydantic_v1_model_instance(obj: Any) -> bool:
+ 
+ 
+ def is_pydantic_v1_model_class(cls: Any) -> bool:
++    if is_typealiastype(cls):
++        return is_pydantic_v1_model_class(getattr(cls, "__value__", Any))
+     with warnings.catch_warnings():
+         warnings.simplefilter("ignore", UserWarning)
+         from pydantic import v1

@@ -1,0 +1,51 @@
+diff --git a/repro.py b/repro.py
+new file mode 100644
+index 00000000..5a9b3a51
+--- /dev/null
++++ b/repro.py
+@@ -0,0 +1,23 @@
++from rich.console import Console
++from rich.syntax import Syntax
++from rich.measure import Measurement
++
++def test_syntax_padding_measure():
++    console = Console(width=100)
++    # No padding
++    syntax_no_pad = Syntax("print('hello')", "python")
++    measure_no_pad = Measurement.get(console, console.options, syntax_no_pad)
++    print(f"No padding: min={measure_no_pad.minimum}, max={measure_no_pad.maximum}")
++
++    # With padding
++    syntax_pad = Syntax("print('hello')", "python", padding=1)
++    measure_pad = Measurement.get(console, console.options, syntax_pad)
++    print(f"With padding=1: min={measure_pad.minimum}, max={measure_pad.maximum}")
++
++    # With line numbers and padding
++    syntax_ln_pad = Syntax("print('hello')", "python", line_numbers=True, padding=1)
++    measure_ln_pad = Measurement.get(console, console.options, syntax_ln_pad)
++    print(f"With line numbers and padding=1: min={measure_ln_pad.minimum}, max={measure_ln_pad.maximum}")
++
++if __name__ == "__main__":
++    test_syntax_padding_measure()
+diff --git a/rich/syntax.py b/rich/syntax.py
+index cff8fd23..262fa131 100644
+--- a/rich/syntax.py
++++ b/rich/syntax.py
+@@ -611,7 +611,7 @@ class Syntax(JupyterMixin):
+         padding = left + right
+         if self.code_width is not None:
+             width = self.code_width + self._numbers_column_width + padding + 1
+-            return Measurement(self._numbers_column_width, width)
++            return Measurement(self._numbers_column_width + padding, width)
+         lines = self.code.splitlines()
+         width = (
+             self._numbers_column_width
+@@ -620,7 +620,7 @@ class Syntax(JupyterMixin):
+         )
+         if self.line_numbers:
+             width += 1
+-        return Measurement(self._numbers_column_width, width)
++        return Measurement(self._numbers_column_width + padding, width)
+ 
+     def __rich_console__(
+         self, console: Console, options: ConsoleOptions

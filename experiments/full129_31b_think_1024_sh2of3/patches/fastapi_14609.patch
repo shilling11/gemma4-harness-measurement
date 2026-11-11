@@ -1,0 +1,46 @@
+diff --git a/fastapi/_compat/shared.py b/fastapi/_compat/shared.py
+index 3a11e88a..d37571af 100644
+--- a/fastapi/_compat/shared.py
++++ b/fastapi/_compat/shared.py
+@@ -10,7 +10,6 @@ from typing import (
+     Union,
+ )
+ 
+-from fastapi._compat import may_v1
+ from fastapi.types import UnionType
+ from pydantic import BaseModel
+ from pydantic.version import VERSION as PYDANTIC_VERSION
+@@ -28,7 +27,7 @@ else:
+     )  # pyright: ignore[reportAttributeAccessIssue]
+ 
+ PYDANTIC_VERSION_MINOR_TUPLE = tuple(int(x) for x in PYDANTIC_VERSION.split(".")[:2])
+-PYDANTIC_V2 = PYDANTIC_VERSION_MINOR_TUPLE[0] == 2
++PYDANTIC_V2 = True
+ 
+ 
+ sequence_annotation_to_type = {
+@@ -82,7 +81,7 @@ def value_is_sequence(value: Any) -> bool:
+ def _annotation_is_complex(annotation: Union[type[Any], None]) -> bool:
+     return (
+         lenient_issubclass(
+-            annotation, (BaseModel, may_v1.BaseModel, Mapping, UploadFile)
++            annotation, (BaseModel, Mapping, UploadFile)
+         )
+         or _annotation_is_sequence(annotation)
+         or is_dataclass(annotation)
+@@ -180,15 +179,4 @@ def is_uploadfile_sequence_annotation(annotation: Any) -> bool:
+ 
+ 
+ def annotation_is_pydantic_v1(annotation: Any) -> bool:
+-    if lenient_issubclass(annotation, may_v1.BaseModel):
+-        return True
+-    origin = get_origin(annotation)
+-    if origin is Union or origin is UnionType:
+-        for arg in get_args(annotation):
+-            if lenient_issubclass(arg, may_v1.BaseModel):
+-                return True
+-    if field_annotation_is_sequence(annotation):
+-        for sub_annotation in get_args(annotation):
+-            if annotation_is_pydantic_v1(sub_annotation):
+-                return True
+     return False

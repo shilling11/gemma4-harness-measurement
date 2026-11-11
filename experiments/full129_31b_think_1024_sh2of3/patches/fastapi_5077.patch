@@ -1,0 +1,64 @@
+diff --git a/fastapi/dependencies/utils.py b/fastapi/dependencies/utils.py
+index ef3f5641..70bf9d86 100644
+--- a/fastapi/dependencies/utils.py
++++ b/fastapi/dependencies/utils.py
+@@ -192,7 +192,11 @@ def get_flat_params(dependant: Dependant) -> List[ModelField]:
+ 
+ def get_typed_signature(call: Callable[..., Any]) -> inspect.Signature:
+     signature = inspect.signature(call)
+-    globalns = getattr(call, "__globals__", {})
++    
++    call_for_globals = call
++    while hasattr(call_for_globals, "__wrapped__"):
++        call_for_globals = call_for_globals.__wrapped__
++    globalns = getattr(call_for_globals, "__globals__", {})
+     typed_params = [
+         inspect.Parameter(
+             name=param.name,
+@@ -222,7 +226,10 @@ def get_typed_return_annotation(call: Callable[..., Any]) -> Any:
+     if annotation is inspect.Signature.empty:
+         return None
+ 
+-    globalns = getattr(call, "__globals__", {})
++    call_for_globals = call
++    while hasattr(call_for_globals, "__wrapped__"):
++        call_for_globals = call_for_globals.__wrapped__
++    globalns = getattr(call_for_globals, "__globals__", {})
+     return get_typed_annotation(annotation, globalns)
+ 
+ 
+diff --git a/repro_simple.py b/repro_simple.py
+new file mode 100644
+index 00000000..da06b44b
+--- /dev/null
++++ b/repro_simple.py
+@@ -0,0 +1,29 @@
++import functools
++from typing import ForwardRef
++from fastapi.dependencies.utils import get_typed_signature
++import inspect
++
++class MyModel:
++    pass
++
++def original_func(x: "MyModel"):
++    return x
++
++@functools.wraps(original_func)
++def wrapper(x):
++    return original_func(x)
++
++print(f"Wrapper annotations: {wrapper.__annotations__}")
++print(f"Wrapper globals: {wrapper.__globals__.get('MyModel')}")
++
++sig = inspect.signature(wrapper)
++print(f"Param annotation: {sig.parameters['x'].annotation}")
++
++try:
++    typed_sig = get_typed_signature(wrapper)
++    print("Success!")
++except NameError as e:
++    print(f"Caught NameError: {e}")
++except Exception as e:
++    import traceback
++    traceback.print_exc()

@@ -1,0 +1,61 @@
+diff --git a/fastapi/param_functions.py b/fastapi/param_functions.py
+index 4be504f4..ea588049 100644
+--- a/fastapi/param_functions.py
++++ b/fastapi/param_functions.py
+@@ -1365,6 +1365,16 @@ def Body(  # noqa: N802
+             """
+         ),
+     ] = "application/json",
++    strict_content_type: Annotated[
++        bool,
++        Doc(
++            """
++            Whether to strictly check the content type of the request body.
++            If `True`, the request body must have a content type of `application/json`
++            or a subtype ending in `+json`.
++            """
++        ),
++    ] = False,
+     alias: Annotated[
+         str | None,
+         Doc(
+@@ -1621,6 +1631,7 @@ def Body(  # noqa: N802
+         default_factory=default_factory,
+         embed=embed,
+         media_type=media_type,
++        strict_content_type=strict_content_type,
+         alias=alias,
+         alias_priority=alias_priority,
+         validation_alias=validation_alias,
+diff --git a/fastapi/params.py b/fastapi/params.py
+index 68f98708..e5d0d629 100644
+--- a/fastapi/params.py
++++ b/fastapi/params.py
+@@ -476,6 +476,7 @@ class Body(FieldInfo):  # type: ignore[misc]
+         annotation: Any | None = None,
+         embed: bool | None = None,
+         media_type: str = "application/json",
++        strict_content_type: bool = False,
+         alias: str | None = None,
+         alias_priority: int | None = _Unset,
+         validation_alias: str | AliasPath | AliasChoices | None = None,
+diff --git a/fastapi/routing.py b/fastapi/routing.py
+index 528c9629..cef193fe 100644
+--- a/fastapi/routing.py
++++ b/fastapi/routing.py
+@@ -369,8 +369,14 @@ def get_request_handler(
+                     if body_bytes:
+                         json_body: Any = Undefined
+                         content_type_value = request.headers.get("content-type")
++                        strict_content_type = (
++                            body_field.field_info.strict_content_type
++                            if isinstance(body_field.field_info, params.Body)
++                            else False
++                        )
+                         if not content_type_value:
+-                            json_body = await request.json()
++                            if not strict_content_type:
++                                json_body = await request.json()
+                         else:
+                             message = email.message.Message()
+                             message["content-type"] = content_type_value

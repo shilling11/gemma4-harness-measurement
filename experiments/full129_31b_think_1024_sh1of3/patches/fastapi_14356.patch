@@ -1,0 +1,22 @@
+diff --git a/fastapi/dependencies/utils.py b/fastapi/dependencies/utils.py
+index 2b2e6c5a..b8e1d724 100644
+--- a/fastapi/dependencies/utils.py
++++ b/fastapi/dependencies/utils.py
+@@ -791,9 +791,15 @@ def request_params_to_args(
+         processed_keys.add(alias or field.alias)
+         processed_keys.add(field.name)
+ 
+-    for key, value in received_params.items():
++    for key in received_params:
+         if key not in processed_keys:
+-            params_to_process[key] = value
++            if isinstance(received_params, (QueryParams, Headers)):
++                values_list = received_params.getlist(key)
++                params_to_process[key] = (
++                    values_list if len(values_list) > 1 else values_list[0] if values_list else None
++                )
++            else:
++                params_to_process[key] = received_params[key]
+ 
+     if single_not_embedded_field:
+         field_info = first_field.field_info

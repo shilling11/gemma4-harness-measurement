@@ -1,0 +1,38 @@
+diff --git a/rich/traceback.py b/rich/traceback.py
+index 3bf5baa7..148a58e4 100644
+--- a/rich/traceback.py
++++ b/rich/traceback.py
+@@ -197,6 +197,7 @@ class _SyntaxError:
+ class Stack:
+     exc_type: str
+     exc_value: str
++    notes: Optional[str] = None
+     syntax_error: Optional[_SyntaxError] = None
+     is_cause: bool = False
+     frames: List[Frame] = field(default_factory=list)
+@@ -411,9 +412,15 @@ class Traceback:
+                 return "<exception str() failed>"
+ 
+         while True:
++            notes = getattr(exc_value, "__notes__", None)
++            stack_notes = None
++            if notes is not None:
++                stack_notes = "\n".join(safe_str(n) for n in notes)
++
+             stack = Stack(
+                 exc_type=safe_str(exc_type.__name__),
+                 exc_value=safe_str(exc_value),
++                notes=stack_notes,
+                 is_cause=is_cause,
+             )
+ 
+@@ -594,6 +601,9 @@ class Traceback:
+             else:
+                 yield Text.assemble((f"{stack.exc_type}", "traceback.exc_type"))
+ 
++            if stack.notes:
++                yield Text.assemble(f"\n{stack.notes}")
++
+             if not last:
+                 if stack.is_cause:
+                     yield Text.from_markup(

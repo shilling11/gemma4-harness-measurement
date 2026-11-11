@@ -1,0 +1,65 @@
+diff --git a/fastapi/params.py b/fastapi/params.py
+index 68f98708..cf621e9e 100644
+--- a/fastapi/params.py
++++ b/fastapi/params.py
+@@ -476,6 +476,7 @@ class Body(FieldInfo):  # type: ignore[misc]
+         annotation: Any | None = None,
+         embed: bool | None = None,
+         media_type: str = "application/json",
++        strict_content_type: bool | None = None,
+         alias: str | None = None,
+         alias_priority: int | None = _Unset,
+         validation_alias: str | AliasPath | AliasChoices | None = None,
+diff --git a/fastapi/routing.py b/fastapi/routing.py
+index 528c9629..d7dab99a 100644
+--- a/fastapi/routing.py
++++ b/fastapi/routing.py
+@@ -369,7 +369,38 @@ def get_request_handler(
+                     if body_bytes:
+                         json_body: Any = Undefined
+                         content_type_value = request.headers.get("content-type")
+-                        if not content_type_value:
++                        if (
++                            isinstance(body_field.field_info, params.Body)
++                            and body_field.field_info.strict_content_type
++                        ):
++                            if not content_type_value:
++                                raise RequestValidationError(
++                                    [
++                                        {
++                                            "type": "missing",
++                                            "loc": ("header", "content-type"),
++                                            "msg": "Field required",
++                                            "input": None,
++                                        }
++                                    ],
++                                    endpoint_ctx=endpoint_ctx,
++                                )
++                            message = email.message.Message()
++                            message["content-type"] = content_type_value
++                            if message.get_content_type() != body_field.field_info.media_type:
++                                raise RequestValidationError(
++                                    [
++                                        {
++                                            "type": "value_error",
++                                            "loc": ("header", "content-type"),
++                                            "msg": f"Invalid content type, expected {body_field.field_info.media_type}",
++                                            "input": content_type_value,
++                                        }
++                                    ],
++                                    endpoint_ctx=endpoint_ctx,
++                                )
++                            json_body = await request.json()
++                        elif not content_type_value:
+                             json_body = await request.json()
+                         else:
+                             message = email.message.Message()
+@@ -397,7 +428,7 @@ def get_request_handler(
+                 endpoint_ctx=endpoint_ctx,
+             )
+             raise validation_error from e
+-        except HTTPException:
++        except RequestValidationError:\n            raise\n        except HTTPException:
+             # If a middleware raises an HTTPException, it should be raised again
+             raise
+         except Exception as e:

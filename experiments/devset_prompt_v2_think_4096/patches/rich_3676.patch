@@ -1,0 +1,34 @@
+diff --git a/rich/traceback.py b/rich/traceback.py
+index 3bf5baa7..ac501d6c 100644
+--- a/rich/traceback.py
++++ b/rich/traceback.py
+@@ -197,6 +197,7 @@ class _SyntaxError:
+ class Stack:
+     exc_type: str
+     exc_value: str
++    notes: Optional[str] = None
+     syntax_error: Optional[_SyntaxError] = None
+     is_cause: bool = False
+     frames: List[Frame] = field(default_factory=list)
+@@ -417,6 +418,9 @@ class Traceback:
+                 is_cause=is_cause,
+             )
+ 
++            if hasattr(exc_value, "__notes__") and exc_value.__notes__:
++                stack.notes = safe_str(exc_value.__notes__)
++
+             if isinstance(exc_value, SyntaxError):
+                 stack.syntax_error = _SyntaxError(
+                     offset=exc_value.offset or 0,
+@@ -591,6 +595,11 @@ class Traceback:
+                     (f"{stack.exc_type}: ", "traceback.exc_type"),
+                     highlighter(stack.exc_value),
+                 )
++                if stack.notes:
++                    yield Text.assemble(
++                        ("\nNote: ", "traceback.exc_type"),
++                        highlighter(stack.notes),
++                    )
+             else:
+                 yield Text.assemble((f"{stack.exc_type}", "traceback.exc_type"))
+ 

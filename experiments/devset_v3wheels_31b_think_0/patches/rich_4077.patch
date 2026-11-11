@@ -1,0 +1,56 @@
+diff --git a/repro_isatty.py b/repro_isatty.py
+new file mode 100644
+index 00000000..c3868724
+--- /dev/null
++++ b/repro_isatty.py
+@@ -0,0 +1,37 @@
++from rich.console import Console
++from rich.file_proxy import FileProxy
++import sys
++import io
++
++def test_file_proxy_isatty():
++    # Create a dummy file that has an isatty method
++    class MockFile(io.TextIOBase):
++        def isatty(self):
++            return True
++        def fileno(self):
++            return 1
++        def write(self, s):
++            return len(s)
++        def flush(self):
++            pass
++
++    mock_file = MockFile()
++    console = Console(file=mock_file, force_terminal=False)
++    proxy = FileProxy(console, mock_file)
++    
++    print(f"MockFile isatty: {mock_file.isatty()}")
++    try:
++        print(f"FileProxy isatty: {proxy.isatty()}")
++    except AttributeError as e:
++        print(f"AttributeError: {e}")
++        raise e
++    
++    assert proxy.isatty() == True
++
++if __name__ == "__main__":
++    try:
++        test_file_proxy_isatty()
++        print("Test passed!")
++    except Exception as e:
++        print(f"Test failed: {e}")
++        sys.exit(1)
+diff --git a/rich/file_proxy.py b/rich/file_proxy.py
+index 4b0b0da6..713926c8 100644
+--- a/rich/file_proxy.py
++++ b/rich/file_proxy.py
+@@ -53,5 +53,8 @@ class FileProxy(io.TextIOBase):
+             self.__console.print(output)
+         del self.__buffer[:]
+ 
++    def isatty(self) -> bool:
++        return self.__file.isatty()
++
+     def fileno(self) -> int:
+         return self.__file.fileno()

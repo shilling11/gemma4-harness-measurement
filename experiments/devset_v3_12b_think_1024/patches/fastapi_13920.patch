@@ -1,0 +1,53 @@
+diff --git a/fastapi/_compat/__init__.py b/fastapi/_compat/__init__.py
+index 3dfaf9b7..e028a457 100644
+--- a/fastapi/_compat/__init__.py
++++ b/fastapi/_compat/__init__.py
+@@ -7,9 +7,7 @@ from .shared import is_pydantic_v1_model_instance as is_pydantic_v1_model_instan
+ from .shared import (
+     is_uploadfile_or_nonable_uploadfile_annotation as is_uploadfile_or_nonable_uploadfile_annotation,
+ )
+-from .shared import (
+-    is_uploadfile_sequence_annotation as is_uploadfile_sequence_annotation,
+-)
++from .shared import is_typealiastype as is_typealiastype
+ from .shared import lenient_issubclass as lenient_issubclass
+ from .shared import sequence_types as sequence_types
+ from .shared import value_is_sequence as value_is_sequence
+diff --git a/fastapi/_compat/shared.py b/fastapi/_compat/shared.py
+index 68b9bbdf..88aabd0f 100644
+--- a/fastapi/_compat/shared.py
++++ b/fastapi/_compat/shared.py
+@@ -11,7 +11,7 @@ from typing import (
+     Union,
+ )
+ 
+-from fastapi.types import UnionType
++from fastapi.types import UnionType, TypeAliasType
+ from pydantic import BaseModel
+ from pydantic.version import VERSION as PYDANTIC_VERSION
+ from starlette.datastructures import UploadFile
+@@ -204,3 +204,7 @@ def annotation_is_pydantic_v1(annotation: Any) -> bool:
+             if annotation_is_pydantic_v1(sub_annotation):
+                 return True
+     return False
++
++
++def is_typealiastype(obj: Any) -> bool:
++    return isinstance(obj, TypeAliasType) if TypeAliasType is not None else False
+diff --git a/fastapi/types.py b/fastapi/types.py
+index 1c3a6de7..d8373a19 100644
+--- a/fastapi/types.py
++++ b/fastapi/types.py
+@@ -1,4 +1,5 @@
+ import types
++import typing
+ from enum import Enum
+ from typing import Any, Callable, Optional, TypeVar, Union
+ 
+@@ -7,5 +8,6 @@ from pydantic.main import IncEx as IncEx
+ 
+ DecoratedCallable = TypeVar("DecoratedCallable", bound=Callable[..., Any])
+ UnionType = getattr(types, "UnionType", Union)
++TypeAliasType = getattr(typing, "TypeAliasType", None)
+ ModelNameMap = dict[Union[type[BaseModel], type[Enum]], str]
+ DependencyCacheKey = tuple[Optional[Callable[..., Any]], tuple[str, ...], str]

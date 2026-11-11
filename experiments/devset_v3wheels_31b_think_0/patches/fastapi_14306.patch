@@ -1,0 +1,33 @@
+diff --git a/fastapi/exceptions.py b/fastapi/exceptions.py
+index 0620428b..81f870d0 100644
+--- a/fastapi/exceptions.py
++++ b/fastapi/exceptions.py
+@@ -157,10 +157,19 @@ class DependencyScopeError(FastAPIError):
+ class ValidationException(Exception):
+     def __init__(self, errors: Sequence[Any]) -> None:
+         self._errors = errors
++        self.endpoint_context: Optional[str] = None
+ 
+     def errors(self) -> Sequence[Any]:
+         return self._errors
+ 
++    def __str__(self) -> str:
++        message = f"{len(self._errors)} validation errors:\n"
++        for err in self._errors:
++            message += f"  {err}\n"
++        if self.endpoint_context:
++            message += f"\n{self.endpoint_context}\n"
++        return message
++
+ 
+ class RequestValidationError(ValidationException):
+     def __init__(self, errors: Sequence[Any], *, body: Any = None) -> None:
+@@ -177,8 +186,3 @@ class ResponseValidationError(ValidationException):
+         super().__init__(errors)
+         self.body = body
+ 
+-    def __str__(self) -> str:
+-        message = f"{len(self._errors)} validation errors:\n"
+-        for err in self._errors:
+-            message += f"  {err}\n"
+-        return message

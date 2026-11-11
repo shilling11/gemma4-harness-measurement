@@ -1,0 +1,30 @@
+diff --git a/repro.py b/repro.py
+new file mode 100644
+index 00000000..02568e02
+--- /dev/null
++++ b/repro.py
+@@ -0,0 +1,24 @@
++from typing import List, Union
++from fastapi import FastAPI
++from pydantic import BaseModel
++
++class Child(BaseModel):
++    name: str
++
++class Item(BaseModel):
++    name: str
++    child: Child
++
++app = FastAPI(separate_input_output_schemas=True)
++
++@app.post("/items/")
++def create_item(item: Item):
++    return item
++
++@app.get("/items/")
++def read_items() -> List[Item]:
++    return [Item(name="Parent", child=Child(name="Child"))]
++
++if __name__ == "__main__":
++    import uvicorn
++    uvicorn.run(app, host="0.0.0.0", port=8000)

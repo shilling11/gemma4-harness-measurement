@@ -1,0 +1,102 @@
+diff --git a/repro.py b/repro.py
+new file mode 100644
+index 00000000..69667709
+--- /dev/null
++++ b/repro.py
+@@ -0,0 +1,96 @@
++
++from fastapi import FastAPI, Depends, Security
++from fastapi.security import OAuth2PasswordBearer
++from fastapi.testclient import TestClient
++import pytest
++
++oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
++
++def get_user(token: str = Depends(oauth2_scheme)):
++    return {"user": "test"}
++
++def get_admin(token: str = Security(oauth2_scheme, scopes=["admin"])):
++    return {"user": "admin"}
++
++app = FastAPI()
++
++@app.get("/admin-only", dependencies=[Depends(get_admin)])
++def read_admin():
++    return {"message": "Hello Admin"}
++
++@app.get("/user-only", dependencies=[Depends(get_user)])
++def read_user():
++    return {"message": "Hello User"}
++
++client = TestClient(app)
++
++def test_openapi_scopes():
++    openapi_schema = app.openapi()
++    paths = openapi_schema["paths"]
++    
++    admin_security = paths["/admin-only"]["get"]["security"]
++    user_security = paths["/user-only"]["get"]["security"]
++    
++    print(f"Admin security: {admin_security}")
++    print(f"User security: {user_security}")
++    
++    assert admin_security == [{"OAuth2PasswordBearer": ["admin"]}]
++    assert user_security == [{"OAuth2PasswordBearer": []}]
++
++def test_nested_scopes():
++    def dep_with_scopes(token: str = Security(oauth2_scheme, scopes=["admin"])):
++        return token
++
++    def dep_without_scopes(token: str = Depends(get_user)):
++        return token
++
++    def parent_dep(a = Depends(dep_with_scopes), b = Depends(dep_without_scopes)):
++        return a
++
++    app_nested = FastAPI()
++    @app_nested.get("/nested", dependencies=[Depends(parent_dep)])
++    def read_nested():
++        return {"message": "Hello Nested"}
++
++    openapi_schema = app_nested.openapi()
++    security = openapi_schema["paths"]["/nested"]["get"]["security"]
++    print(f"Nested security: {security}")
++    assert security == [{"OAuth2PasswordBearer": ["admin"]}]
++
++def test_complex_caching_issue():
++    # "parent dependency with scopes, sub-dependency security scheme without scopes, 
++    # and the same security scheme used as another sub-dependency without scopes in a different path operation."
++    
++    def sub_dep_no_scopes(token: str = Depends(oauth2_scheme)):
++        return token
++
++    def parent_dep_with_scopes(token: str = Security(oauth2_scheme, scopes=["admin"]), 
++                               sub = Depends(sub_dep_no_scopes)):
++        return token
++
++    app_complex = FastAPI()
++    
++    @app_complex.get("/path1", dependencies=[Depends(parent_dep_with_scopes)])
++    def path1():
++        return {"message": "path1"}
++
++    @app_complex.get("/path2", dependencies=[Depends(sub_dep_no_scopes)])
++    def path2():
++        return {"message": "path2"}
++
++    openapi_schema = app_complex.openapi()
++    
++    sec1 = openapi_schema["paths"]["/path1"]["get"]["security"]
++    sec2 = openapi_schema["paths"]["/path2"]["get"]["security"]
++    
++    print(f"Path1 security: {sec1}")
++    print(f"Path2 security: {sec2}")
++    
++    assert sec1 == [{"OAuth2PasswordBearer": ["admin"]}]
++    assert sec2 == [{"OAuth2PasswordBearer": []}]
++
++if __name__ == "__main__":
++    test_openapi_scopes()
++    test_nested_scopes()
++    test_complex_caching_issue()
++    print("All tests passed!")

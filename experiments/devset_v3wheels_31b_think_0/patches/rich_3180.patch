@@ -1,0 +1,41 @@
+diff --git a/repro.py b/repro.py
+new file mode 100644
+index 00000000..b2a51e03
+--- /dev/null
++++ b/repro.py
+@@ -0,0 +1,22 @@
++from rich.console import Console
++import io
++from contextlib import redirect_stdout
++
++def test_double_width_wrap():
++    # Width 1.
++    # 'こんにちは' (10 cells)
++    # Each char is 2 cells.
++    # If width is 1, and we have a 2-cell char, it should still be printed, 
++    # but it should probably be on its own line.
++    console = Console(width=1, force_terminal=True)
++    text = "こんにちは"
++    
++    f = io.StringIO()
++    with redirect_stdout(f):
++        console.print(text)
++    
++    output = f.getvalue()
++    print(f"Output:\n{output}")
++
++if __name__ == "__main__":
++    test_double_width_wrap()
+diff --git a/rich/_wrap.py b/rich/_wrap.py
+index c45f193f..162858e8 100644
+--- a/rich/_wrap.py
++++ b/rich/_wrap.py
+@@ -27,7 +27,7 @@ def divide_line(text: str, width: int, fold: bool = True) -> List[int]:
+         if line_position + word_length > width:
+             if word_length > width:
+                 if fold:
+-                    chopped_words = chop_cells(word, max_size=width, position=0)
++                    chopped_words = chop_cells(word, max_size=max(width, 1), position=0)
+                     for last, line in loop_last(chopped_words):
+                         if start:
+                             append(start)

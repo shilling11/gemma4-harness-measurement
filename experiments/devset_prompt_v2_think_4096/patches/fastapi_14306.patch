@@ -1,0 +1,149 @@
+diff --git a/fastapi/exceptions.py b/fastapi/exceptions.py
+index 0620428b..87067a3c 100644
+--- a/fastapi/exceptions.py
++++ b/fastapi/exceptions.py
+@@ -155,16 +155,20 @@ class DependencyScopeError(FastAPIError):
+ 
+ 
+ class ValidationException(Exception):
+-    def __init__(self, errors: Sequence[Any]) -> None:
++    def __init__(self, errors: Sequence[Any], metadata: Optional[Dict[str, Any]] = None) -> None:
+         self._errors = errors
++        self.metadata = metadata
+ 
+     def errors(self) -> Sequence[Any]:
+         return self._errors
+ 
++    def __str__(self) -> str:
++        message = f\"{len(self._errors)} validation errors:\\n\"\n        for err in self._errors:\n            message += f\"  {err}\\n\"\n        if self.metadata:\n            message += f\"\\n  File {self.metadata['file']}, line {self.metadata['line']}, in {self.metadata['name']}\n    {self.metadata['method']} {self.metadata['path']}\n\"\n        return message
++
+ 
+ class RequestValidationError(ValidationException):
+-    def __init__(self, errors: Sequence[Any], *, body: Any = None) -> None:
+-        super().__init__(errors)
++    def __init__(self, errors: Sequence[Any], *, body: Any = None, metadata: Optional[Dict[str, Any]] = None) -> None:
++        super().__init__(errors, metadata=metadata)
+         self.body = body
+ 
+ 
+@@ -173,12 +177,6 @@ class WebSocketRequestValidationError(ValidationException):
+ 
+ 
+ class ResponseValidationError(ValidationException):
+-    def __init__(self, errors: Sequence[Any], *, body: Any = None) -> None:
+-        super().__init__(errors)
++    def __init__(self, errors: Sequence[Any], *, body: Any = None, metadata: Optional[Dict[str, Any]] = None) -> None:
++        super().__init__(errors, metadata=metadata)
+         self.body = body
+-
+-    def __str__(self) -> str:
+-        message = f"{len(self._errors)} validation errors:\n"
+-        for err in self._errors:
+-            message += f"  {err}\n"
+-        return message
+diff --git a/fastapi/routing.py b/fastapi/routing.py
+index c10175b1..758ae4d8 100644
+--- a/fastapi/routing.py
++++ b/fastapi/routing.py
+@@ -246,7 +246,7 @@ async def serialize_response(
+             errors.append(errors_)
+         if errors:
+             raise ResponseValidationError(
+-                errors=_normalize_errors(errors), body=response_content
++                errors=_normalize_errors(errors), body=response_content, metadata=metadata
+             )
+ 
+         if hasattr(field, "serialize"):
+@@ -286,6 +286,27 @@ async def run_endpoint_function(
+         return await run_in_threadpool(dependant.call, **values)
+ 
+ 
++def get_endpoint_metadata(dependant: "Dependant", route: "APIRoute") -> Optional[Dict[str, Any]]:
++    if dependant.call is None:
++        return None
++    try:
++        unwrapped = inspect.unwrap(dependant.call)
++        file = inspect.getfile(unwrapped)
++        _, start_line = inspect.getsourcelines(unwrapped)
++        name = unwrapped.__name__
++        methods = route.methods
++        method_str = ", ".join(sorted(methods)) if methods else ""
++        return {
++            "file": file,
++            "line": start_line,
++            "name": name,
++            "method": method_str,
++            "path": route.path,
++        }
++    except Exception:
++        return None
++
++
+ def get_request_handler(
+     dependant: Dependant,
+     body_field: Optional[ModelField] = None,
+@@ -300,9 +321,11 @@ def get_request_handler(
+     response_model_exclude_none: bool = False,
+     dependency_overrides_provider: Optional[Any] = None,
+     embed_body_fields: bool = False,
++    route: Optional["APIRoute"] = None,
+ ) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+     assert dependant.call is not None, "dependant.call must be a function"
+     is_coroutine = dependant.is_coroutine_callable
++    metadata = get_endpoint_metadata(dependant, route) if route else None
+     is_body_form = body_field and isinstance(
+         body_field.field_info, (params.Form, temp_pydantic_v1_params.Form)
+     )
+@@ -355,6 +378,7 @@ def get_request_handler(
+                     }
+                 ],
+                 body=e.doc,
++                metadata=metadata,
+             )
+             raise validation_error from e
+         except HTTPException:
+@@ -421,7 +445,7 @@ def get_request_handler(
+                 response.headers.raw.extend(solved_result.response.headers.raw)
+         if errors:
+             validation_error = RequestValidationError(
+-                _normalize_errors(errors), body=body
++                _normalize_errors(errors), body=body, metadata=metadata
+             )
+             raise validation_error
+ 
+@@ -436,8 +460,10 @@ def get_websocket_app(
+     dependant: Dependant,
+     dependency_overrides_provider: Optional[Any] = None,
+     embed_body_fields: bool = False,
++    route: Optional["APIRoute"] = None,
+ ) -> Callable[[WebSocket], Coroutine[Any, Any, Any]]:
+     async def app(websocket: WebSocket) -> None:
++        metadata = get_endpoint_metadata(dependant, route) if route else None
+         async_exit_stack = websocket.scope.get("fastapi_inner_astack")
+         assert isinstance(async_exit_stack, AsyncExitStack), (
+             "fastapi_inner_astack not found in request scope"
+@@ -451,7 +477,7 @@ def get_websocket_app(
+         )
+         if solved_result.errors:
+             raise WebSocketRequestValidationError(
+-                _normalize_errors(solved_result.errors)
++                _normalize_errors(solved_result.errors), metadata=metadata
+             )
+         assert dependant.call is not None, "dependant.call must be a function"
+         await dependant.call(**solved_result.values)
+@@ -491,6 +517,7 @@ class APIWebSocketRoute(routing.WebSocketRoute):
+                 dependant=self.dependant,
+                 dependency_overrides_provider=dependency_overrides_provider,
+                 embed_body_fields=self._embed_body_fields,
++                route=self,
+             )
+         )
+ 
+@@ -661,6 +688,7 @@ class APIRoute(routing.Route):
+             response_model_exclude_none=self.response_model_exclude_none,
+             dependency_overrides_provider=self.dependency_overrides_provider,
+             embed_body_fields=self._embed_body_fields,
++            route=self,
+         )
+ 
+     def matches(self, scope: Scope) -> Tuple[Match, Scope]:

@@ -1,0 +1,31 @@
+diff --git a/fastapi/dependencies/utils.py b/fastapi/dependencies/utils.py
+index ef3f5641..04d609fb 100644
+--- a/fastapi/dependencies/utils.py
++++ b/fastapi/dependencies/utils.py
+@@ -192,7 +192,13 @@ def get_flat_params(dependant: Dependant) -> List[ModelField]:
+ 
+ def get_typed_signature(call: Callable[..., Any]) -> inspect.Signature:
+     signature = inspect.signature(call)
+-    globalns = getattr(call, "__globals__", {})
++    
++    # Follow __wrapped__ to find the original function and its globals
++    original_call = call
++    while hasattr(original_call, "__wrapped__"):
++        original_call = original_call.__wrapped__
++    globalns = getattr(original_call, "__globals__", {})
++    
+     typed_params = [
+         inspect.Parameter(
+             name=param.name,
+diff --git a/other_module.py b/other_module.py
+new file mode 100644
+index 00000000..701bff00
+--- /dev/null
++++ b/other_module.py
+@@ -0,0 +1,6 @@
++from pydantic import BaseModel
++class OtherModel(BaseModel):
++    name: str
++
++def other_func(item: 'OtherModel'):
++    return item

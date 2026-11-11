@@ -1,0 +1,49 @@
+diff --git a/scripts/release.py b/scripts/release.py
+new file mode 100644
+index 000000000..c1bb6efe0
+--- /dev/null
++++ b/scripts/release.py
+@@ -0,0 +1,43 @@
++import sys
++from pathlib import Path
++import re
++import subprocess
++import typer
++
++app = typer.Typer()
++
++RELEASE_NOTES_FILE = Path("docs/en/docs/release-notes.md")
++INIT_FILE = Path("fastapi/__init__.py")
++
++@app.command()
++def main(version: str):
++    """
++    Prepare release.
++    """
++    # 1. Update version in fastapi/__init__.py
++    init_content = INIT_FILE.read_text()
++    init_new_content = re.sub(r'__version__ = ".*"', f'__version__ = "{version}"', init_content)
++    INIT_FILE.write_text(init_new_content)
++    typer.echo(f"Updated version to {version} in {INIT_FILE}")
++
++    # 2. Update release notes
++    notes_content = RELEASE_NOTES_FILE.read_text()
++    if "## Latest Changes" in notes_content:
++        notes_new_content = notes_content.replace("## Latest Changes", f"## Latest Changes\n\n## {version}", 1)
++        RELEASE_NOTES_FILE.write_text(notes_new_content)
++        typer.echo(f"Added version {version} to {RELEASE_NOTES_FILE}")
++    else:
++        typer.echo("Could not find '## Latest Changes' in release notes")
++        raise typer.Abort()
++
++    # 3. Run add_latest_release_date.py
++    typer.echo("Running scripts/add_latest_release_date.py...")
++    result = subprocess.run(["uv", "run", "python", "scripts/add_latest_release_date.py"])
++    if result.returncode != 0:
++        typer.echo("Error running scripts/add_latest_release_date.py")
++        raise typer.Abort()
++
++    typer.echo("Release preparation complete!")
++
++if __name__ == "__main__":
++    app()

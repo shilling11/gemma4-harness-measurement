@@ -1,0 +1,20 @@
+# Per-task budgets, read by scripts/inference.py via
+# load_submission_eval_config(). CONFIRMED HONOURED by the scorer: raising
+# max_time_minutes 4 -> 5 moved the public score 0.12 -> 0.15, so the
+# SWE_MAX_TIME_MINUTES env override is not being set. Local `swegemma eval`
+# ignores this file for time and tool calls -- pass the same values as CLI
+# flags, which the notebook derives from here.
+#
+# Budget math: ~100 scored tasks. The 4-min full-set run measured 7.90h/129,
+# which scales to ~6.9h of agent loop at 5 min for 100 tasks. That completed
+# inside the 12h Kaggle notebook ceiling, bounding the scorer's per-task
+# container + verification overhead at under ~3 min/task.
+evaluation:
+  max_time_minutes: 5      # 4 -> 5 was worth +3 tasks. 6 is ~7.8h, 7 is ~8.8h.
+  max_tool_calls: 50       # max observed 47; time binds first
+  max_turns: 80            # ~tool_calls + 3 in practice; no CLI flag exists,
+                           # so local runs use the CLI default of 500
+  timeout_seconds: 60      # was 300, which CANNOT bind: run_command uses
+                           # min(this, remaining_session_time) and remaining is
+                           # never above the session cap. 60 stops one
+                           # unqualified pytest eating the rest of the session.

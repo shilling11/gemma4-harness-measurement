@@ -1,0 +1,36 @@
+diff --git a/tmp/repro.py b/tmp/repro.py
+new file mode 100644
+index 00000000..9274d610
+--- /dev/null
++++ b/tmp/repro.py
+@@ -0,0 +1,30 @@
++from fastapi import FastAPI
++from pydantic import BaseModel
++from fastapi.testclient import TestClient
++import json
++
++class Item(BaseModel):
++    name: str
++
++class Order(BaseModel):
++    item: Item
++
++app = FastAPI(separate_input_output_schemas=True)
++
++@app.post("/orders/")
++def create_order(order: Order) -> Order:
++    return order
++
++client = TestClient(app)
++
++def test_openapi():
++    response = client.get("/openapi.json")
++    assert response.status_code == 200
++    schema = response.json()
++    print(json.dumps(schema, indent=2))
++    
++    schemas = schema["components"]["schemas"]
++    print(f"Schemas: {list(schemas.keys())}")
++
++if __name__ == "__main__":
++    test_openapi()

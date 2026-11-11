@@ -1,0 +1,80 @@
+diff --git a/rich/traceback.py b/rich/traceback.py
+index b2cc6304..07a95f82 100644
+--- a/rich/traceback.py
++++ b/rich/traceback.py
+@@ -123,6 +123,8 @@ def install(
+ 
+     """
+     traceback_console = Console(stderr=True) if console is None else console
++    old_excepthook = sys.excepthook
++    _in_excepthook = False
+ 
+     locals_hide_sunder = (
+         True
+@@ -135,25 +137,35 @@ def install(
+         value: BaseException,
+         traceback: Optional[TracebackType],
+     ) -> None:
+-        exception_traceback = Traceback.from_exception(
+-            type_,
+-            value,
+-            traceback,
+-            width=width,
+-            code_width=code_width,
+-            extra_lines=extra_lines,
+-            theme=theme,
+-            word_wrap=word_wrap,
+-            show_locals=show_locals,
+-            locals_max_length=locals_max_length,
+-            locals_max_string=locals_max_string,
+-            locals_hide_dunder=locals_hide_dunder,
+-            locals_hide_sunder=bool(locals_hide_sunder),
+-            indent_guides=indent_guides,
+-            suppress=suppress,
+-            max_frames=max_frames,
+-        )
+-        traceback_console.print(exception_traceback)
++        nonlocal _in_excepthook
++        if _in_excepthook:
++            old_excepthook(type_, value, traceback)
++            return
++        _in_excepthook = True
++        try:
++            exception_traceback = Traceback.from_exception(
++                type_,
++                value,
++                traceback,
++                width=width,
++                code_width=code_width,
++                extra_lines=extra_lines,
++                theme=theme,
++                word_wrap=word_wrap,
++                show_locals=show_locals,
++                locals_max_length=locals_max_length,
++                locals_max_string=locals_max_string,
++                locals_hide_dunder=locals_hide_dunder,
++                locals_hide_sunder=bool(locals_hide_sunder),
++                indent_guides=indent_guides,
++                suppress=suppress,
++                max_frames=max_frames,
++            )
++            traceback_console.print(exception_traceback)
++        except Exception:
++            old_excepthook(type_, value, traceback)
++        finally:
++            _in_excepthook = False
+ 
+     def ipy_excepthook_closure(ip: Any) -> None:  # pragma: no cover
+         tb_data = {}  # store information about showtraceback call
+@@ -200,10 +212,9 @@ def install(
+         # if within ipython, use customized traceback
+         ip = get_ipython()  # type: ignore[name-defined]
+         ipy_excepthook_closure(ip)
+-        return sys.excepthook
++        return old_excepthook
+     except Exception:
+         # otherwise use default system hook
+-        old_excepthook = sys.excepthook
+         sys.excepthook = excepthook
+         return old_excepthook
+ 

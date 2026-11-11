@@ -1,0 +1,45 @@
+diff --git a/repro.py b/repro.py
+new file mode 100644
+index 00000000..efe92b39
+--- /dev/null
++++ b/repro.py
+@@ -0,0 +1,25 @@
++import pickle
++import requests
++import json
++
++try:
++    # Create a JSONDecodeError
++    # json.JSONDecodeError(msg, doc, pos)
++    exc = requests.exceptions.JSONDecodeError("Expecting value", "invalid json", 0)
++    
++    # Pickle and unpickle
++    pickled = pickle.dumps(exc)
++    unpickled = pickle.loads(pickled)
++    
++    print(f"Original: msg={exc.msg}, doc={exc.doc}, pos={exc.pos}")
++    print(f"Unpickled: msg={getattr(unpickled, 'msg', 'N/A')}, doc={getattr(unpickled, 'doc', 'N/A')}, pos={getattr(unpickled, 'pos', 'N/A')}")
++    
++    assert exc.msg == unpickled.msg
++    assert exc.doc == unpickled.doc
++    assert exc.pos == unpickled.pos
++    print("Successfully pickled and unpickled!")
++except Exception as e:
++    print(f"Failed: {e}")
++    import traceback
++    traceback.print_exc()
++    exit(1)
+diff --git a/src/requests/exceptions.py b/src/requests/exceptions.py
+index e1cedf88..b311e1ee 100644
+--- a/src/requests/exceptions.py
++++ b/src/requests/exceptions.py
+@@ -41,6 +41,9 @@ class JSONDecodeError(InvalidJSONError, CompatJSONDecodeError):
+         CompatJSONDecodeError.__init__(self, *args)
+         InvalidJSONError.__init__(self, *self.args, **kwargs)
+ 
++    def __reduce__(self):
++        return CompatJSONDecodeError.__reduce__(self)
++
+ 
+ class HTTPError(RequestException):
+     """An HTTP error occurred."""

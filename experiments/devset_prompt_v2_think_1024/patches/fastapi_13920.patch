@@ -1,0 +1,70 @@
+diff --git a/fastapi/_compat/shared.py b/fastapi/_compat/shared.py
+index 68b9bbdf..b5917925 100644
+--- a/fastapi/_compat/shared.py
++++ b/fastapi/_compat/shared.py
+@@ -27,6 +27,11 @@ else:
+         types.UnionType,
+     )  # pyright: ignore[reportAttributeAccessIssue]
+ 
++
++def is_typealiastype(obj: Any) -> bool:
++    return isinstance(obj, getattr(typing, "TypeAliasType", type(None)))
++
++
+ PYDANTIC_VERSION_MINOR_TUPLE = tuple(int(x) for x in PYDANTIC_VERSION.split(".")[:2])
+ PYDANTIC_V2 = PYDANTIC_VERSION_MINOR_TUPLE[0] == 2
+ 
+@@ -49,6 +54,8 @@ Url: type[Any]
+ def lenient_issubclass(
+     cls: Any, class_or_tuple: Union[type[Any], tuple[type[Any], ...], None]
+ ) -> bool:
++    if is_typealiastype(cls):
++        cls = getattr(cls, "__value__", Any)
+     try:
+         return isinstance(cls, type) and issubclass(cls, class_or_tuple)  # type: ignore[arg-type]
+     except TypeError:  # pragma: no cover
+@@ -64,6 +71,8 @@ def _annotation_is_sequence(annotation: Union[type[Any], None]) -> bool:
+ 
+ 
+ def field_annotation_is_sequence(annotation: Union[type[Any], None]) -> bool:
++    if is_typealiastype(annotation):
++        annotation = getattr(annotation, "__value__", Any)
+     origin = get_origin(annotation)
+     if origin is Union or origin is UnionType:
+         for arg in get_args(annotation):
+@@ -88,6 +97,8 @@ def _annotation_is_complex(annotation: Union[type[Any], None]) -> bool:
+ 
+ 
+ def field_annotation_is_complex(annotation: Union[type[Any], None]) -> bool:
++    if is_typealiastype(annotation):
++        annotation = getattr(annotation, "__value__", Any)
+     origin = get_origin(annotation)
+     if origin is Union or origin is UnionType:
+         return any(field_annotation_is_complex(arg) for arg in get_args(annotation))
+@@ -109,6 +120,8 @@ def field_annotation_is_scalar(annotation: Any) -> bool:
+ 
+ 
+ def field_annotation_is_scalar_sequence(annotation: Union[type[Any], None]) -> bool:
++    if is_typealiastype(annotation):
++        annotation = getattr(annotation, "__value__", Any)
+     origin = get_origin(annotation)
+     if origin is Union or origin is UnionType:
+         at_least_one_scalar_sequence = False
+@@ -126,6 +139,8 @@ def field_annotation_is_scalar_sequence(annotation: Union[type[Any], None]) -> b
+ 
+ 
+ def is_bytes_or_nonable_bytes_annotation(annotation: Any) -> bool:
++    if is_typealiastype(annotation):
++        annotation = getattr(annotation, "__value__", Any)
+     if lenient_issubclass(annotation, bytes):
+         return True
+     origin = get_origin(annotation)
+@@ -137,6 +152,8 @@ def is_bytes_or_nonable_bytes_annotation(annotation: Any) -> bool:
+ 
+ 
+ def is_uploadfile_or_nonable_uploadfile_annotation(annotation: Any) -> bool:
++    if is_typealiastype(annotation):
++        annotation = getattr(annotation, "__value__", Any)
+     if lenient_issubclass(annotation, UploadFile):
+         return True
+     origin = get_origin(annotation)

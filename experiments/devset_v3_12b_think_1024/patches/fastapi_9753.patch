@@ -1,0 +1,283 @@
+diff --git a/reproduce_partial.py b/reproduce_partial.py
+new file mode 100644
+index 00000000..efe50700
+--- /dev/null
++++ b/reproduce_partial.py
+@@ -0,0 +1,31 @@
++import inspect
++import functools
++import asyncio
++from typing import Callable, Any
++
++async def async_func(a: int, b: str) -> None:
++    pass
++
++def plain_func(a: int, b: str) -> None:
++    pass
++
++class CallableClass:
++    def __call__(self, a: int, b: str) -> None:
++        pass
++
++def test_signatures():
++    # Plain function
++    p_func = functools.partial(plain_func, a=1)
++    print(f"Plain func partial: {inspect.signature(p_func)}")
++
++    # Async function
++    a_func = functools.partial(async_func, a=1)
++    print(f"Async func partial: {inspect.signature(a_func)}")
++
++    # Callable class instance
++    c_obj = CallableClass()
++    c_partial = functools.partial(c_obj, a=1)
++    print(f"Callable class partial: {inspect.signature(c_partial)}")
++
++if __name__ == "__main__":
++    test_signatures()
+diff --git a/reproduce_partial_2.py b/reproduce_partial_2.py
+new file mode 100644
+index 00000000..c247836e
+--- /dev/null
++++ b/reproduce_partial_2.py
+@@ -0,0 +1,57 @@
++import inspect
++import functools
++import asyncio
++from typing import Callable, Any, Dict
++
++async def async_func(a: int, b: str) -> None:
++    pass
++
++def plain_func(a: int, b: str) -> None:
++    pass
++
++class CallableClass:
++    def __call__(self, a: int, b: str) -> None:
++        pass
++
++def get_typed_annotation(annotation: Any, globalns: Dict[str, Any]) -> Any:
++    if isinstance(annotation, str):
++        # This is a simplified version for the reproduction
++        # In reality, it would use ForwardRef and evaluate_forwardref
++        return annotation
++    return annotation
++
++def get_typed_signature(call: Callable[..., Any]) -> inspect.Signature:
++    signature = inspect.signature(call)
++    unwrapped = inspect.unwrap(call)
++    globalns = getattr(unwrapped, "__globals__", {})
++    typed_params = [
++        inspect.Parameter(
++            name=param.name,
++            kind=param.kind,
++            default=param.default,
++            annotation=get_typed_annotation(param.annotation, globalns),
++        )
++        for param in signature.parameters.values()
++    ]
++    typed_signature = inspect.Signature(typed_params)
++    return typed_signature
++
++test_cases = [
++    ("Plain function", plain_func),
++    ("Async function", async_func),
++    ("Callable class", CallableClass()),
++]
++
++for name, func in test_cases:
++    partial_func = functools.partial(func, a=1)
++    print(f"{name}:")
++    print(f"  Original: {inspect.signature(func)}")
++    print(f"  Partial: {inspect.signature(partial_func)}")
++    try:
++        print(f"  Typed: {get_typed_signature(partial_func)}")
++    except Exception as e:
++        print(f"  Typed: Error: {e}")
++    print("-" * 20)
++
++if __name__ == "__main__":
++    pass
+diff --git a/reproduce_partial_3.py b/reproduce_partial_3.py
+new file mode 100644
+index 00000000..6dd06c99
+--- /dev/null
++++ b/reproduce_partial_3.py
+@@ -0,0 +1,58 @@
++import inspect
++import functools
++from typing import Callable, Any, Dict
++
++async def async_func(a: int, b: str) -> None:
++    pass
++
++def plain_func(a: int, b: str) -> None:
++    pass
++
++class CallableClass:
++    def __call__(self, a: int, b: str) -> None:
++        pass
++
++def get_typed_annotation(annotation: Any, globalns: Dict[str, Any]) -> Any:
++    if isinstance(annotation, str):
++        return annotation
++    return annotation
++
++def get_typed_signature(call: Callable[..., Any]) -> inspect.Signature:
++    signature = inspect.signature(call)
++    unwrapped = inspect.unwrap(call)
++    globalns = getattr(unwrapped, "__globals__", {})
++    typed_params = [
++        inspect.Parameter(
++            name=param.name,
++            kind=param.kind,
++            default=param.default,
++            annotation=get_typed_annotation(param.annotation, globalns),
++        )
++        for param in signature.parameters.values()
++    ]
++    typed_signature = inspect.Signature(typed_params)
++    return typed_signature
++
++test_cases = [
++    ("Plain function", plain_func),
++    ("Async function", async_func),
++    ("Callable class", CallableClass()),
++]
++
++for name, func in test_cases:
++    p1 = functools.partial(func, a=1)
++    p2 = functools.partial(p1, b=2)
++    print(f"{name}:")
++    print(f"  Original: {inspect.signature(func)}")
++    print(f"  Partial 1: {inspect.signature(p1)}")
++    print(f"  Partial 2: {inspect.signature(p2)}")
++    try:
++        print(f"  Typed 1: {get_typed_signature(p1)}")
++        print(f"  Typed 2: {get_typed_signature(p2)}")
++    except Exception as e:
++        print(f"  Typed 1: Error: {e}")
++        print(f"  Typed 2: Error: {e}")
++    print("-" * 20)
++
++if __name__ == "__main__":
++    pass
+diff --git a/reproduce_signatures.py b/reproduce_signatures.py
+new file mode 100644
+index 00000000..2960e9cb
+--- /dev/null
++++ b/reproduce_signatures.py
+@@ -0,0 +1,5 @@
++import inspect
++def plain_func(a: int, b: str) -> None:
++    pass
++
++print(f"Original: {inspect.signature(plain_func)}")
+diff --git a/reproduce_signatures_2.py b/reproduce_signatures_2.py
+new file mode 100644
+index 00000000..1d044740
+--- /dev/null
++++ b/reproduce_signatures_2.py
+@@ -0,0 +1,9 @@
++import inspect
++import functools
++
++def plain_func(a: int, b: str) -> None:
++    pass
++
++p_func = functools.partial(plain_func, a=1)
++print(f"Original: {inspect.signature(plain_func)}")
++print(f"Partial: {inspect.signature(p_func)}")
+diff --git a/reproduce_signatures_3.py b/reproduce_signatures_3.py
+new file mode 100644
+index 00000000..3184ca6c
+--- /dev/null
++++ b/reproduce_signatures_3.py
+@@ -0,0 +1,9 @@
++import inspect
++import functools
++
++def plain_func(a: int, b: str) -> None:
++    pass
++
++p_func = functools.partial(plain_func, 1)
++print(f"Original: {inspect.signature(plain_func)}")
++print(f"Partial: {inspect.signature(p_func)}")
+diff --git a/reproduce_signatures_4.py b/reproduce_signatures_4.py
+new file mode 100644
+index 00000000..05c59644
+--- /dev/null
++++ b/reproduce_signatures_4.py
+@@ -0,0 +1,9 @@
++import inspect
++import functools
++
++def plain_func(*, a: int, b: str) -> None:
++    pass
++
++p_func = functools.partial(plain_func, a=1)
++print(f"Original: {inspect.signature(plain_func)}")
++print(f"Partial: {inspect.signature(p_func)}")
+diff --git a/reproduce_signatures_5.py b/reproduce_signatures_5.py
+new file mode 100644
+index 00000000..fe6f686e
+--- /dev/null
++++ b/reproduce_signatures_5.py
+@@ -0,0 +1,9 @@
++import inspect
++import functools
++
++def plain_func(a: int, b: str) -> None:
++    pass
++
++p_func = functools.partial(plain_func, a=1)
++print(f"Unwrapped: {inspect.unwrap(p_func)}")
++print(f"Signature: {inspect.signature(p_func)}")
+diff --git a/reproduce_signatures_6.py b/reproduce_signatures_6.py
+new file mode 100644
+index 00000000..05c59644
+--- /dev/null
++++ b/reproduce_signatures_6.py
+@@ -0,0 +1,9 @@
++import inspect
++import functools
++
++def plain_func(*, a: int, b: str) -> None:
++    pass
++
++p_func = functools.partial(plain_func, a=1)
++print(f"Original: {inspect.signature(plain_func)}")
++print(f"Partial: {inspect.signature(p_func)}")
+diff --git a/reproduce_signatures_7.py b/reproduce_signatures_7.py
+new file mode 100644
+index 00000000..39277ad4
+--- /dev/null
++++ b/reproduce_signatures_7.py
+@@ -0,0 +1,10 @@
++import inspect
++import functools
++
++def plain_func(a: int, b: str) -> None:
++    pass
++
++p_func = functools.partial(plain_func, a=1)
++print(f"func: {p_func.func}")
++print(f"keywords: {p_func.keywords}")
++print(f"signature: {inspect.signature(p_func)}")
+diff --git a/reproduce_signatures_8.py b/reproduce_signatures_8.py
+new file mode 100644
+index 00000000..97a582a1
+--- /dev/null
++++ b/reproduce_signatures_8.py
+@@ -0,0 +1,11 @@
++import inspect
++import functools
++
++def plain_func(a: int, b: str) -> None:
++    pass
++
++p1 = functools.partial(plain_func, a=1)
++p2 = functools.partial(p1, b=2)
++
++print(f"p1 signature: {inspect.signature(p1)}")
++print(f"p2 signature: {inspect.signature(p2)}")

@@ -1,0 +1,62 @@
+diff --git a/fastapi/exceptions.py b/fastapi/exceptions.py
+index 0620428b..c2bb94b6 100644
+--- a/fastapi/exceptions.py
++++ b/fastapi/exceptions.py
+@@ -157,10 +157,21 @@ class DependencyScopeError(FastAPIError):
+ class ValidationException(Exception):
+     def __init__(self, errors: Sequence[Any]) -> None:
+         self._errors = errors
++        self.context: Optional[Dict[str, Any]] = None
+ 
+     def errors(self) -> Sequence[Any]:
+         return self._errors
+ 
++    def __str__(self) -> str:
++        message = f"{len(self._errors)} validation errors:\\n"
++        for err in self._errors:
++            message += f"  {err}\\n"
++        if self.context:
++            ctx = self.context
++            message += f"\\n  File \"{ctx['file']}\", line {ctx['line']}, in {ctx['name']}\\n"
++            message += f"    {ctx['method']} {ctx['path']}\\n"
++        return message
++
+ 
+ class RequestValidationError(ValidationException):
+     def __init__(self, errors: Sequence[Any], *, body: Any = None) -> None:
+@@ -176,9 +187,3 @@ class ResponseValidationError(ValidationException):
+     def __init__(self, errors: Sequence[Any], *, body: Any = None) -> None:
+         super().__init__(errors)
+         self.body = body
+-
+-    def __str__(self) -> str:
+-        message = f"{len(self._errors)} validation errors:\n"
+-        for err in self._errors:
+-            message += f"  {err}\n"
+-        return message
+diff --git a/fastapi/utils.py b/fastapi/utils.py
+index b3b89ed2..7877b56a 100644
+--- a/fastapi/utils.py
++++ b/fastapi/utils.py
+@@ -4,6 +4,7 @@ from dataclasses import is_dataclass
+ from typing import (
+     TYPE_CHECKING,
+     Any,
++    Callable,
+     Dict,
+     MutableMapping,
+     Optional,
+@@ -14,6 +15,7 @@ from typing import (
+ )
+ from weakref import WeakKeyDictionary
+ 
++import inspect
+ import fastapi
+ from fastapi._compat import (
+     PYDANTIC_V2,
+@@ -257,4 +259,4 @@ def get_value_or_default(
+     for item in items:
+         if not isinstance(item, DefaultPlaceholder):
+             return item
+-    return first_item
++    return first_item\n\n\ndef get_endpoint_context(call: Callable[..., Any], path: str, methods: Set[str]) -> Dict[str, Any]:\n    try:\n        unwrapped = inspect.unwrap(call)\n        file = inspect.getfile(unwrapped)\n        line = inspect.getlineno(unwrapped)\n        name = unwrapped.__name__\n    except Exception:\n        file = \"unknown\"\n        line = 0\n        name = \"unknown\"\n\n    method = next(iter(methods)) if methods else \"UNKNOWN\"\n\n    return {\n        \"file\": file,\n        \"line\": line,\n        \"name\": name,\n        \"method\": method,\n        \"path\": path,\n    }
